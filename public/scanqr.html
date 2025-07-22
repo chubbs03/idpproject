@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scan QR</title>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body>
+<h2>Scan QR Code</h2>
+<div id="reader" style="width: 300px;"></div>
+<p id="result"></p>
+<script>
+function sendQRCodeToServer(qrCode) {
+fetch('/set-latest-code', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ code: qrCode })
+})
+.then(res => res.text())
+.then(data => {
+document.getElementById('result').innerText = `Sent to server: ${qrCode}`;
+});
+}
+const html5QrCode = new Html5Qrcode("reader");
+html5QrCode.start(
+{ facingMode: "environment" },
+{
+fps: 10,
+qrbox: 250
+},
+qrCodeMessage => {
+sendQRCodeToServer(qrCodeMessage);
+},
+errorMessage => {
+// optional: console.log(errorMessage);
+}
+).catch(err => console.error("QR scanner error:", err));
+</script>
+</body>
+</html>

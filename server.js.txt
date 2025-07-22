@@ -1,0 +1,89 @@
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const app = express();
+const PORT = 3000;
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, "public")));
+
+const DB_PATH = path.join(__dirname, "database.json.txt");
+
+if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, "[]");
+
+let latestQR = "NONE";
+
+// === Serve Admin Panel ===
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.html"));
+});
+
+// === Add New Entry ===
+app.post("/add", (req, res) => {
+  const { name, code, servo, medicine } = req.body;
+  const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+  db.push({ name, code, servo, medicine });
+  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+  res.send("Entry added successfully.");
+});
+
+// === Show QR Code Assignment Table ===
+app.get("/view", (req, res) => {
+  const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+  let html = `
+    <!DOCTYPE html>
+    <html>
+    <head><title>Database</title>
+    <style>
+      body { font-family: Arial; padding: 20px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+      th { background-color: #eee; }
+      .qr-preview img { max-width: 80px; cursor: pointer; }
+    </style>
+    </head><body>
+    <h2>QR Locker Database</h2>
+    <table><tr><th>Name</th><th>QR Code</th><th>Servo</th><th>Medicine</th><th>QR</th></tr>
+  `;
+  db.forEach(entry => {
+    html += `<tr>
+      <td>${entry.name}</td>
+      <td>${entry.code}</td>
+      <td>${entry.servo}</td>
+      <td>${entry.medicine}</td>
+      <td class="qr-preview"><img src="https://api.qrserver.com/v1/create-qr-code/?data=${entry.code}&size=100x100" onclick="enlargeQR(this)"></td>
+    </tr>`;
+  });
+  html += `</table><script>
+    function enlargeQR(img) {
+      const w = window.open("");
+      w.document.write("<img src='" + img.src + "' style='width:300px;height:300px;'>");
+    }
+  </script><br><a href="/">← Back</a></body></html>`;
+  res.send(html);
+});
+
+// === Endpoint to store scanned QR code ===
+app.post("/set-latest-code", (req, res) => {
+  const { code } = req.body;
+  latestQR = code;
+  res.send("QR code received");
+});
+
+// === ESP32 polls this ===
+app.get("/get-latest-code", (req, res) => {
+  if (latestQR !== "NONE") {
+    const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+    const match = db.find(entry => entry.code === latestQR);
+    const response = match ? match.servo : "NONE";
+    latestQR = "NONE";
+    res.send(response);
+  } else {
+    res.send("NONE");
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});

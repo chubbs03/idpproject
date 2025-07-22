@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>QR Locker Admin Panel</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+input, select, button { width: 100%; padding: 10px; margin: 8px 0; }
+#qrcode img { margin-top: 20px; }
+</style>
+</head>
+<body>
+<h2>Patient Medicine Data</h2>
+<form id="assignForm">
+<label>Name:</label>
+<input type="text" id="name" required>
+<label>IC Number :</label>
+<input type="text" id="code" required>
+<label>Slot:</label>
+<select id="servo" required>
+<option value="">-- Choose Slot --</option>
+<option value="A1">A1</option>
+<option value="A2">A2</option>
+<option value="A3">A3</option>
+<option value="A4">A4</option>
+</select>
+<label>Medicine:</label>
+<input type="text" id="medicine" required>
+<button type="submit">Submit & Generate QR</button>
+</form>
+<p id="status"></p>
+<div id="qrcode"></div>
+<button id="downloadBtn" style="display:none;">Download QR Code</button>
+<br><br>
+<a href="/view">→ View All Entries</a>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+const form = document.getElementById('assignForm');
+const qrDiv = document.getElementById('qrcode');
+const downloadBtn = document.getElementById('downloadBtn');
+form.addEventListener('submit', async (e) => {
+e.preventDefault();
+const name = document.getElementById('name').value.trim();
+const code = document.getElementById('code').value.trim();
+const servo = document.getElementById('servo').value;
+const medicine = document.getElementById('medicine').value.trim();
+if (!name || !code || !servo || !medicine) {
+alert("Please fill in all fields.");
+return;
+}
+const res = await fetch('/add', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ name, code, servo, medicine })
+});
+const text = await res.text();
+document.getElementById('status').innerText = text;
+qrDiv.innerHTML = "";
+const qr = new QRCode(qrDiv, {
+text: code,
+width: 200,
+height: 200
+});
+setTimeout(() => {
+const qrImg = qrDiv.querySelector('img');
+if (qrImg) {
+downloadBtn.style.display = "inline-block";
+downloadBtn.onclick = () => {
+const a = document.createElement('a');
+a.href = qrImg.src;
+a.download = `${name}_QR.png`;
+a.click();
+};
+}
+}, 500);
+form.reset();
+});
+</script>
+</body>
+</html>
